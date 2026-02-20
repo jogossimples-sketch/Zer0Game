@@ -63,8 +63,9 @@
             puloForca: -18,
             gravidade: 0.8,
             noPlataforma: false,
+            // PONTO DE SPAWN SEGURO!
             posicaoInicialX: 100,
-            posicaoInicialY: 200
+            posicaoInicialY: 150
         };
 
         // ------------------- LAVA (CHÃO PERIGOSO) -------------------
@@ -150,12 +151,11 @@
             score = 0;
             scoreDisplay.textContent = `Pontuação: ${score}`;
             
-            // Cria plataformas iniciais
-            let x = 200;
-            for(let i = 0; i < 4; i++) {
-                criarPlataforma(x);
-                x += Math.random() * (distanciaMaxEntrePlataformas - distanciaMinEntrePlataformas) + distanciaMinEntrePlataformas;
-            }
+            // Cria plataformas iniciais - UMA DELAS EM BAIXO DO SPAWN!
+            criarPlataforma(50); // Plataforma do spawn
+            criarPlataforma(200);
+            criarPlataforma(400);
+            criarPlataforma(600);
         }
 
         // ------------------- DESENHO DOS ELEMENTOS -------------------
@@ -305,5 +305,4 @@
         loopDoJogo();
     </script>
 </body>
-    </html>
-    
+</html>
