@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Meu Jogo 100% Original!</title>
+    <style>
+        canvas { 
+            border: 3px solid #333; 
+            background-color: #87CEEB; /* Céu azul */
+        }
+        body { display: flex; justify-content: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <canvas id="meuCanvas" width="800" height="600"></canvas>
+
+    <script>
+        // ------------------- TUDO AQUI É NOSSO! -------------------
+        const canvas = document.getElementById('meuCanvas');
+        const ctx = canvas.getContext('2d'); // "Caneta" para desenhar
+
+
+        // ------------------- DEFININDO O JOGADOR -------------------
+        const jogador = {
+            x: 100,
+            y: 500,
+            largura: 50,
+            altura: 50,
+            cor: '#FF4500', // Laranja vibrante
+            velocidade: 7,
+            puloForca: 18,
+            gravidade: 0.8,
+            velocidadeY: 0,
+            noChao: false
+        };
+
+
+        // ------------------- DEFININDO OBSTÁCULOS -------------------
+        const obstaculos = [
+            { x: 300, y: 500, largura: 100, altura: 20, cor: '#228B22' }, // Grama
+            { x: 500, y: 450, largura: 100, altura: 20, cor: '#228B22' },
+            { x: 700, y: 400, largura: 100, altura: 20, cor: '#228B22' }
+        ];
+
+
+        // ------------------- CONTROLES -------------------
+        const teclas = {
+            esquerda: false,
+            direita: false,
+            cima: false
+        };
+
+        // Detecta quando aperta/solta uma tecla
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'ArrowLeft') teclas.esquerda = true;
+            if(e.key === 'ArrowRight') teclas.direita = true;
+            if(e.key === 'ArrowUp' && jogador.noChao) {
+                jogador.velocidadeY = -jogador.puloForca;
+                jogador.noChao = false;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if(e.key === 'ArrowLeft') teclas.esquerda = false;
+            if(e.key === 'ArrowRight') teclas.direita = false;
+        });
+
+
+        // ------------------- FUNÇÃO DE COLISÃO -------------------
+        function verificarColisao(obj1, obj2) {
+            return (
+                obj1.x < obj2.x + obj2.largura &&
+                obj1.x + obj1.largura > obj2.x &&
+                obj1.y < obj2.y + obj2.altura &&
+                obj1.y + obj1.altura > obj2.y
+            );
+        }
+
+
+        // ------------------- LOOP PRINCIPAL DO JOGO -------------------
+        function loopDoJogo() {
+            // Limpa a tela a cada frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+
+            // ------------------- ATUALIZA DADOS DO JOGADOR -------------------
+            // Movimento horizontal
+            if(teclas.esquerda && jogador.x > 0) jogador.x -= jogador.velocidade;
+            if(teclas.direita && jogador.x + jogador.largura < canvas.width) jogador.x += jogador.velocidade;
+
+            // Gravidade e pulo
+            jogador.velocidadeY += jogador.gravidade;
+            jogador.y += jogador.velocidadeY;
+            jogador.noChao = false;
+
+            // Colisão com o chão da tela
+            if(jogador.y + jogador.altura > canvas.height) {
+                jogador.y = canvas.height - jogador.altura;
+                jogador.velocidadeY = 0;
+                jogador.noChao = true;
+            }
+
+            // Colisão com obstáculos
+            for(const obs of obstaculos) {
+                if(verificarColisao(jogador, obs)) {
+                    jogador.y = obs.y - jogador.altura;
+                    jogador.velocidadeY = 0;
+                    jogador.noChao = true;
+                }
+            }
+
+
+            // ------------------- DESENHA TUDO NA TELA -------------------
+            // Desenha jogador
+            ctx.fillStyle = jogador.cor;
+            ctx.fillRect(jogador.x, jogador.y, jogador.largura, jogador.altura);
+
+            // Desenha obstáculos
+            for(const obs of obstaculos) {
+                ctx.fillStyle = obs.cor;
+                ctx.fillRect(obs.x, obs.y, obs.largura, obs.altura);
+            }
+
+
+            // Repete o loop infinitamente
+            requestAnimationFrame(loopDoJogo);
+        }
+
+        // Inicia o jogo!
+        loopDoJogo();
+    </script>
+</body>
+</html>
