@@ -1,46 +1,92 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Meu Jogo 100% Original!</title>
+    <title>Zer0Game - Aventura da Bola!</title>
     <style>
-        canvas { 
-            border: 3px solid #333; 
-            background-color: #87CEEB; /* Céu azul */
+        body { 
+            margin: 0; 
+            padding: 20px; 
+            background-color: #1a1a2e; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            color: white;
         }
-        body { display: flex; justify-content: center; margin-top: 20px; }
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #meuCanvas {
+            background: linear-gradient(to bottom, #87CEEB, #4682B4);
+            display: block;
+            border-radius: 10px;
+        }
+        #scoreDisplay {
+            margin-top: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #00FFFF;
+        }
     </style>
 </head>
 <body>
-    <canvas id="meuCanvas" width="800" height="600"></canvas>
+    <div id="gameContainer">
+        <canvas id="meuCanvas" width="800" height="600"></canvas>
+    </div>
+    <div id="scoreDisplay">Pontuação: 0</div>
 
     <script>
-        // ------------------- TUDO AQUI É NOSSO! -------------------
         const canvas = document.getElementById('meuCanvas');
-        const ctx = canvas.getContext('2d'); // "Caneta" para desenhar
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
 
+        // ------------------- CONFIGURAÇÕES DO JOGO -------------------
+        let score = 0;
+        const gameSpeed = 3;
 
-        // ------------------- DEFININDO O JOGADOR -------------------
-        const jogador = {
+        // ------------------- BOLA (JOGADOR) -------------------
+        const bola = {
             x: 100,
-            y: 500,
-            largura: 50,
-            altura: 50,
-            cor: '#FF4500', // Laranja vibrante
-            velocidade: 7,
-            puloForca: 18,
-            gravidade: 0.8,
+            y: 200,
+            raio: 20,
+            cor: '#FFD700', // Amarelo dourado
+            bordaCor: '#FFA500', // Laranja
+            velocidadeX: 0,
             velocidadeY: 0,
-            noChao: false
+            aceleracao: 0.8,
+            maxVelocidade: 8,
+            puloForca: -18,
+            gravidade: 0.8,
+            noPlataforma: false,
+            posicaoInicialX: 100,
+            posicaoInicialY: 200
         };
 
+        // ------------------- LAVA (CHÃO PERIGOSO) -------------------
+        const lava = {
+            y: canvas.height - 30,
+            altura: 30,
+            cor: '#FF4500', // Vermelho vibrante
+            corLuz: '#FF6347', // Tom mais claro para efeito
+            largura: canvas.width
+        };
 
-        // ------------------- DEFININDO OBSTÁCULOS -------------------
-        const obstaculos = [
-            { x: 300, y: 500, largura: 100, altura: 20, cor: '#228B22' }, // Grama
-            { x: 500, y: 450, largura: 100, altura: 20, cor: '#228B22' },
-            { x: 700, y: 400, largura: 100, altura: 20, cor: '#228B22' }
-        ];
-
+        // ------------------- OBSTÁCULOS (PLATAFORMAS) -------------------
+        let plataformas = [];
+        const plataformaLarguraMin = 60;
+        const plataformaLarguraMax = 150;
+        const plataformaAltura = 20;
+        const plataformaCor = '#32CD32'; // Verde lima
+        const plataformaBordaCor = '#228B22'; // Verde escuro
+        const distanciaMinEntrePlataformas = 120;
+        const distanciaMaxEntrePlataformas = 250;
+        const alturaMinPlataforma = 100;
+        const alturaMaxPlataforma = 450;
 
         // ------------------- CONTROLES -------------------
         const teclas = {
@@ -49,13 +95,12 @@
             cima: false
         };
 
-        // Detecta quando aperta/solta uma tecla
         document.addEventListener('keydown', (e) => {
             if(e.key === 'ArrowLeft') teclas.esquerda = true;
             if(e.key === 'ArrowRight') teclas.direita = true;
-            if(e.key === 'ArrowUp' && jogador.noChao) {
-                jogador.velocidadeY = -jogador.puloForca;
-                jogador.noChao = false;
+            if(e.key === 'ArrowUp' && bola.noPlataforma) {
+                bola.velocidadeY = bola.puloForca;
+                bola.noPlataforma = false;
             }
         });
 
@@ -64,69 +109,201 @@
             if(e.key === 'ArrowRight') teclas.direita = false;
         });
 
-
-        // ------------------- FUNÇÃO DE COLISÃO -------------------
-        function verificarColisao(obj1, obj2) {
-            return (
-                obj1.x < obj2.x + obj2.largura &&
-                obj1.x + obj1.largura > obj2.x &&
-                obj1.y < obj2.y + obj2.altura &&
-                obj1.y + obj1.altura > obj2.y
-            );
+        // ------------------- FUNÇÕES AUXILIARES -------------------
+        // Cria plataforma nova
+        function criarPlataforma(x) {
+            const largura = Math.random() * (plataformaLarguraMax - plataformaLarguraMin) + plataformaLarguraMin;
+            const y = Math.random() * (alturaMaxPlataforma - alturaMinPlataforma) + alturaMinPlataforma;
+            plataformas.push({
+                x: x,
+                y: y,
+                largura: largura,
+                altura: plataformaAltura,
+                cor: plataformaCor,
+                bordaCor: plataformaBordaCor
+            });
         }
 
+        // Verifica colisão entre bola e plataforma
+        function verificarColisaoBolaPlataforma(bola, plataforma) {
+            const distanciaX = Math.abs(bola.x - (plataforma.x + plataforma.largura/2));
+            const distanciaY = Math.abs(bola.y - (plataforma.y + plataforma.altura/2));
+            
+            if (distanciaX > (plataforma.largura/2 + bola.raio)) return false;
+            if (distanciaY > (plataforma.altura/2 + bola.raio)) return false;
+            
+            if (distanciaX <= (plataforma.largura/2)) return true;
+            if (distanciaY <= (plataforma.altura/2)) return true;
+            
+            const distanciaCantos = Math.pow(distanciaX - plataforma.largura/2, 2) + 
+                                   Math.pow(distanciaY - plataforma.altura/2, 2);
+            return distanciaCantos <= Math.pow(bola.raio, 2);
+        }
+
+        // Reseta o jogo
+        function resetarJogo() {
+            bola.x = bola.posicaoInicialX;
+            bola.y = bola.posicaoInicialY;
+            bola.velocidadeX = 0;
+            bola.velocidadeY = 0;
+            plataformas = [];
+            score = 0;
+            scoreDisplay.textContent = `Pontuação: ${score}`;
+            
+            // Cria plataformas iniciais
+            let x = 200;
+            for(let i = 0; i < 4; i++) {
+                criarPlataforma(x);
+                x += Math.random() * (distanciaMaxEntrePlataformas - distanciaMinEntrePlataformas) + distanciaMinEntrePlataformas;
+            }
+        }
+
+        // ------------------- DESENHO DOS ELEMENTOS -------------------
+        function desenharBola() {
+            ctx.beginPath();
+            ctx.arc(bola.x, bola.y, bola.raio, 0, Math.PI * 2);
+            ctx.fillStyle = bola.cor;
+            ctx.fill();
+            ctx.strokeStyle = bola.bordaCor;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.closePath();
+
+            // Efeito de brilho
+            ctx.beginPath();
+            ctx.arc(bola.x - bola.raio/3, bola.y - bola.raio/3, bola.raio/4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function desenharPlataformas() {
+            plataformas.forEach(plataforma => {
+                ctx.beginPath();
+                ctx.rect(plataforma.x, plataforma.y, plataforma.largura, plataforma.altura);
+                ctx.fillStyle = plataforma.cor;
+                ctx.fill();
+                ctx.strokeStyle = plataforma.bordaCor;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.closePath();
+
+                // Efeito de sombra
+                ctx.beginPath();
+                ctx.rect(plataforma.x + 3, plataforma.y + 3, plataforma.largura, plataforma.altura);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fill();
+                ctx.closePath();
+            });
+        }
+
+        function desenharLava() {
+            // Camada de luz
+            ctx.beginPath();
+            ctx.rect(0, lava.y - 5, lava.largura, 5);
+            ctx.fillStyle = lava.corLuz;
+            ctx.fill();
+            ctx.closePath();
+
+            // Camada principal da lava
+            ctx.beginPath();
+            ctx.rect(0, lava.y, lava.largura, lava.altura);
+            ctx.fillStyle = lava.cor;
+            ctx.fill();
+            ctx.closePath();
+
+            // Efeito de movimento na lava
+            ctx.beginPath();
+            for(let i = 0; i < lava.largura; i += 20) {
+                const alturaOnda = Math.sin(Date.now() * 0.005 + i * 0.1) * 5;
+                ctx.moveTo(i, lava.y);
+                ctx.lineTo(i, lava.y + alturaOnda);
+            }
+            ctx.strokeStyle = lava.corLuz;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.closePath();
+        }
 
         // ------------------- LOOP PRINCIPAL DO JOGO -------------------
         function loopDoJogo() {
-            // Limpa a tela a cada frame
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-
-            // ------------------- ATUALIZA DADOS DO JOGADOR -------------------
-            // Movimento horizontal
-            if(teclas.esquerda && jogador.x > 0) jogador.x -= jogador.velocidade;
-            if(teclas.direita && jogador.x + jogador.largura < canvas.width) jogador.x += jogador.velocidade;
-
-            // Gravidade e pulo
-            jogador.velocidadeY += jogador.gravidade;
-            jogador.y += jogador.velocidadeY;
-            jogador.noChao = false;
-
-            // Colisão com o chão da tela
-            if(jogador.y + jogador.altura > canvas.height) {
-                jogador.y = canvas.height - jogador.altura;
-                jogador.velocidadeY = 0;
-                jogador.noChao = true;
+            // ------------------- ATUALIZAÇÕES -------------------
+            // Movimento horizontal da bola
+            if(teclas.esquerda) {
+                bola.velocidadeX -= bola.aceleracao;
+            } else if(teclas.direita) {
+                bola.velocidadeX += bola.aceleracao;
+            } else {
+                // Fricção
+                bola.velocidadeX *= 0.9;
             }
 
-            // Colisão com obstáculos
-            for(const obs of obstaculos) {
-                if(verificarColisao(jogador, obs)) {
-                    jogador.y = obs.y - jogador.altura;
-                    jogador.velocidadeY = 0;
-                    jogador.noChao = true;
+            // Limita velocidade máxima
+            if(bola.velocidadeX > bola.maxVelocidade) bola.velocidadeX = bola.maxVelocidade;
+            if(bola.velocidadeX < -bola.maxVelocidade) bola.velocidadeX = -bola.maxVelocidade;
+
+            // Gravidade
+            bola.velocidadeY += bola.gravidade;
+            bola.x += bola.velocidadeX;
+            bola.y += bola.velocidadeY;
+
+            // Mantém bola dentro da tela horizontalmente
+            if(bola.x - bola.raio < 0) {
+                bola.x = bola.raio;
+                bola.velocidadeX *= -0.5;
+            }
+            if(bola.x + bola.raio > canvas.width) {
+                bola.x = canvas.width - bola.raio;
+                bola.velocidadeX *= -0.5;
+            }
+
+            // Verifica colisão com plataformas
+            bola.noPlataforma = false;
+            plataformas.forEach(plataforma => {
+                if(verificarColisaoBolaPlataforma(bola, plataforma) && bola.velocidadeY > 0) {
+                    bola.y = plataforma.y - bola.raio;
+                    bola.velocidadeY = 0;
+                    bola.noPlataforma = true;
                 }
+            });
+
+            // Move plataformas para criar efeito de infinito
+            plataformas.forEach((plataforma, index) => {
+                plataforma.x -= gameSpeed;
+                
+                // Remove plataformas que saem da tela
+                if(plataforma.x + plataforma.largura < 0) {
+                    plataformas.splice(index, 1);
+                    score += 10;
+                    scoreDisplay.textContent = `Pontuação: ${score}`;
+                }
+            });
+
+            // Cria novas plataformas automaticamente
+            const ultimaPlataforma = plataformas[plataformas.length - 1];
+            if(ultimaPlataforma && ultimaPlataforma.x + ultimaPlataforma.largura < canvas.width - distanciaMinEntrePlataformas) {
+                criarPlataforma(canvas.width + Math.random() * 50);
             }
 
-
-            // ------------------- DESENHA TUDO NA TELA -------------------
-            // Desenha jogador
-            ctx.fillStyle = jogador.cor;
-            ctx.fillRect(jogador.x, jogador.y, jogador.largura, jogador.altura);
-
-            // Desenha obstáculos
-            for(const obs of obstaculos) {
-                ctx.fillStyle = obs.cor;
-                ctx.fillRect(obs.x, obs.y, obs.largura, obs.altura);
+            // Verifica se caiu na lava
+            if(bola.y + bola.raio > lava.y) {
+                resetarJogo();
             }
 
+            // ------------------- DESENHO -------------------
+            desenharPlataformas();
+            desenharLava();
+            desenharBola();
 
-            // Repete o loop infinitamente
             requestAnimationFrame(loopDoJogo);
         }
 
         // Inicia o jogo!
+        resetarJogo();
         loopDoJogo();
     </script>
 </body>
-</html>
+    </html>
+    
