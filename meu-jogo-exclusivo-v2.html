@@ -6,286 +6,182 @@
         body { 
             margin: 0; 
             padding: 20px; 
-            background-color: #1a1a2e; 
+            background: #1a1a2e; 
             display: flex; 
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            font-family: Arial, sans-serif;
+            font-family: Arial;
             color: white;
         }
-        #gameContainer {
-            position: relative;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        canvas {
+            background: linear-gradient(#87CEEB, #4682B4);
             border-radius: 10px;
-            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,255,255,0.5);
         }
-        #meuCanvas {
-            background: linear-gradient(to bottom, #87CEEB, #4682B4);
-            display: block;
-            border-radius: 10px;
-        }
-        #scoreDisplay {
+        #placar {
             margin-top: 15px;
             font-size: 24px;
-            font-weight: bold;
             color: #00FFFF;
         }
     </style>
 </head>
 <body>
-    <div id="gameContainer">
-        <canvas id="meuCanvas" width="800" height="600"></canvas>
-    </div>
-    <div id="scoreDisplay">Pontuação: 0</div>
+    <canvas id="jogo" width="800" height="600"></canvas>
+    <div id="placar">Pontuação: 0</div>
 
     <script>
-        const canvas = document.getElementById('meuCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreDisplay = document.getElementById('scoreDisplay');
+        // CONFIGURAÇÕES BÁSICAS
+        const tela = document.getElementById('jogo');
+        const pincel = tela.getContext('2d');
+        const placar = document.getElementById('placar');
+        let pontos = 0;
+        const velJogo = 2;
 
-        // ------------------- CONFIGURAÇÕES DO JOGO -------------------
-        let score = 0;
-        const gameSpeed = 2.5; // Velocidade reduzida para facilitar passagem
-
-        // ------------------- BOLA (JOGADOR) -------------------
+        // BOLA DO JOGADOR
         const bola = {
             x: 100,
-            y: 200,
+            y: 150,
             raio: 20,
-            cor: '#FFD700', // Amarelo dourado
-            bordaCor: '#FFA500', // Laranja
-            velocidadeX: 0,
-            velocidadeY: 0,
-            puloForca: -16, // Pulo mais baixo para mais controle
-            gravidade: 0.7, // Gravidade mais leve
-            noPlataforma: false,
-            // PONTO DE SPAWN SEGURO!
-            posicaoInicialX: 100,
-            posicaoInicialY: 150
+            cor: '#FFD700',
+            velX: 0,
+            velY: 0,
+            pulo: -16,
+            gravidade: 0.7,
+            noChao: false
         };
 
-        // ------------------- LAVA (CHÃO PERIGOSO) -------------------
+        // LAVA
         const lava = {
-            y: canvas.height - 30,
+            y: 570,
             altura: 30,
-            cor: '#FF4500', // Vermelho vibrante
-            corLuz: '#FF6347', // Tom mais claro para efeito
-            largura: canvas.width
+            cor: '#FF4500'
         };
 
-        // ------------------- OBSTÁCULOS (PLATAFORMAS) -------------------
+        // PLATAFORMAS
         let plataformas = [];
-        const plataformaLarguraMin = 80; // Plataformas mais largas
-        const plataformaLarguraMax = 180;
-        const plataformaAltura = 20;
-        const plataformaCor = '#32CD32'; // Verde lima
-        const plataformaBordaCor = '#228B22'; // Verde escuro
-        const distanciaMinEntrePlataformas = 100; // Menos distância entre elas
-        const distanciaMaxEntrePlataformas = 200;
-        const alturaMinPlataforma = 120; // Alturas mais acessíveis
-        const alturaMaxPlataforma = 400;
 
-        // ------------------- CONTROLES -------------------
-        const teclas = {
-            esquerda: false,
-            direita: false,
-            cima: false
-        };
-
+        // CONTROLES
+        const teclas = {esquerda: false, direita: false, cima: false};
         document.addEventListener('keydown', (e) => {
             if(e.key === 'ArrowLeft') teclas.esquerda = true;
             if(e.key === 'ArrowRight') teclas.direita = true;
-            if(e.key === 'ArrowUp' && bola.noPlataforma) {
-                bola.velocidadeY = bola.puloForca;
-                bola.noPlataforma = false;
+            if(e.key === 'ArrowUp' && bola.noChao) {
+                bola.velY = bola.pulo;
+                bola.noChao = false;
             }
         });
-
         document.addEventListener('keyup', (e) => {
             if(e.key === 'ArrowLeft') teclas.esquerda = false;
             if(e.key === 'ArrowRight') teclas.direita = false;
         });
 
-        // ------------------- FUNÇÕES AUXILIARES -------------------
-        // Cria plataforma nova
+        // FUNÇÕES
         function criarPlataforma(x) {
-            const largura = Math.random() * (plataformaLarguraMax - plataformaLarguraMin) + plataformaLarguraMin;
-            const y = Math.random() * (alturaMaxPlataforma - alturaMinPlataforma) + alturaMinPlataforma;
             plataformas.push({
                 x: x,
-                y: y,
-                largura: largura,
-                altura: plataformaAltura,
-                cor: plataformaCor,
-                bordaCor: plataformaBordaCor
+                y: Math.random() * 300 + 120,
+                largura: Math.random() * 100 + 80,
+                altura: 20
             });
         }
 
-        // Verifica colisão entre bola e plataforma
-        function verificarColisaoBolaPlataforma(bola, plataforma) {
-            const distanciaX = Math.abs(bola.x - (plataforma.x + plataforma.largura/2));
-            const distanciaY = Math.abs(bola.y - (plataforma.y + plataforma.altura/2));
-            
-            if (distanciaX > (plataforma.largura/2 + bola.raio)) return false;
-            if (distanciaY > (plataforma.altura/2 + bola.raio)) return false;
-            
-            if (distanciaX <= (plataforma.largura/2)) return true;
-            if (distanciaY <= (plataforma.altura/2)) return true;
-            
-            const distanciaCantos = Math.pow(distanciaX - plataforma.largura/2, 2) + 
-                                   Math.pow(distanciaY - plataforma.altura/2, 2);
-            return distanciaCantos <= Math.pow(bola.raio, 2);
+        function colisao(bola, plataforma) {
+            return (bola.x - bola.raio < plataforma.x + plataforma.largura &&
+                    bola.x + bola.raio > plataforma.x &&
+                    bola.y + bola.raio > plataforma.y &&
+                    bola.y - bola.raio < plataforma.y + plataforma.altura);
         }
 
-        // Reseta o jogo
-        function resetarJogo() {
-            bola.x = bola.posicaoInicialX;
-            bola.y = bola.posicaoInicialY;
-            bola.velocidadeX = 0; // Sem velocidade inicial
-            bola.velocidadeY = 0;
+        function resetar() {
+            bola.x = 100;
+            bola.y = 150;
+            bola.velX = 0;
+            bola.velY = 0;
             plataformas = [];
-            score = 0;
-            scoreDisplay.textContent = `Pontuação: ${score}`;
-            
-            // Cria plataformas iniciais - UMA DELAS EM BAIXO DO SPAWN!
-            criarPlataforma(50); // Plataforma do spawn
+            pontos = 0;
+            placar.textContent = `Pontuação: ${pontos}`;
+            criarPlataforma(50);
             criarPlataforma(250);
             criarPlataforma(450);
             criarPlataforma(650);
         }
 
-        // ------------------- DESENHO DOS ELEMENTOS -------------------
-        function desenharBola() {
-            ctx.beginPath();
-            ctx.arc(bola.x, bola.y, bola.raio, 0, Math.PI * 2);
-            ctx.fillStyle = bola.cor;
-            ctx.fill();
-            ctx.strokeStyle = bola.bordaCor;
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            ctx.closePath();
+        function desenhar() {
+            // LIMPA TELA
+            pincel.clearRect(0,0,tela.width,tela.height);
 
-            // Efeito de brilho
-            ctx.beginPath();
-            ctx.arc(bola.x - bola.raio/3, bola.y - bola.raio/3, bola.raio/4, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.fill();
-            ctx.closePath();
-        }
-
-        function desenharPlataformas() {
-            plataformas.forEach(plataforma => {
-                ctx.beginPath();
-                ctx.rect(plataforma.x, plataforma.y, plataforma.largura, plataforma.altura);
-                ctx.fillStyle = plataforma.cor;
-                ctx.fill();
-                ctx.strokeStyle = plataforma.bordaCor;
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.closePath();
-
-                // Efeito de sombra
-                ctx.beginPath();
-                ctx.rect(plataforma.x + 3, plataforma.y + 3, plataforma.largura, plataforma.altura);
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-                ctx.fill();
-                ctx.closePath();
+            // DESENHA PLATAFORMAS
+            pincel.fillStyle = '#32CD32';
+            plataformas.forEach(p => {
+                pincel.fillRect(p.x, p.y, p.largura, p.altura);
+                pincel.strokeStyle = '#228B22';
+                pincel.strokeRect(p.x, p.y, p.largura, p.altura);
             });
+
+            // DESENHA LAVA
+            pincel.fillStyle = '#FF4500';
+            pincel.fillRect(0, lava.y, tela.width, lava.altura);
+            pincel.fillStyle = '#FF6347';
+            pincel.fillRect(0, lava.y -5, tela.width, 5);
+
+            // DESENHA BOLA
+            pincel.beginPath();
+            pincel.arc(bola.x, bola.y, bola.raio, 0, Math.PI*2);
+            pincel.fillStyle = bola.cor;
+            pincel.fill();
+            pincel.strokeStyle = '#FFA500';
+            pincel.lineWidth = 3;
+            pincel.stroke();
         }
 
-        function desenharLava() {
-            // Camada de luz
-            ctx.beginPath();
-            ctx.rect(0, lava.y - 5, lava.largura, 5);
-            ctx.fillStyle = lava.corLuz;
-            ctx.fill();
-            ctx.closePath();
+        function atualizar() {
+            // MOVIMENTO DA BOLA - SÓ SE APERTAR TECLAS!
+            bola.velX = 0;
+            if(teclas.esquerda && bola.x > bola.raio) bola.velX = -6;
+            if(teclas.direita && bola.x < tela.width - bola.raio) bola.velX = 6;
 
-            // Camada principal da lava
-            ctx.beginPath();
-            ctx.rect(0, lava.y, lava.largura, lava.altura);
-            ctx.fillStyle = lava.cor;
-            ctx.fill();
-            ctx.closePath();
+            // GRAVIDADE
+            bola.velY += bola.gravidade;
+            bola.x += bola.velX;
+            bola.y += bola.velY;
 
-            // Efeito de movimento na lava
-            ctx.beginPath();
-            for(let i = 0; i < lava.largura; i += 20) {
-                const alturaOnda = Math.sin(Date.now() * 0.005 + i * 0.1) * 5;
-                ctx.moveTo(i, lava.y);
-                ctx.lineTo(i, lava.y + alturaOnda);
-            }
-            ctx.strokeStyle = lava.corLuz;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.closePath();
-        }
-
-        // ------------------- LOOP PRINCIPAL DO JOGO -------------------
-        function loopDoJogo() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // ------------------- ATUALIZAÇÕES -------------------
-            // BOLA NÃO ANDA SOZINHA! Só se mover se o jogador apertar as teclas
-            bola.velocidadeX = 0; // Zera velocidade horizontal a cada frame
-            if(teclas.esquerda && bola.x - bola.raio > 0) {
-                bola.velocidadeX = -6; // Velocidade fixa e controlada
-            } else if(teclas.direita && bola.x + bola.raio < canvas.width) {
-                bola.velocidadeX = 6;
-            }
-
-            // Gravidade
-            bola.velocidadeY += bola.gravidade;
-            bola.x += bola.velocidadeX;
-            bola.y += bola.velocidadeY;
-
-            // Verifica colisão com plataformas
-            bola.noPlataforma = false;
-            plataformas.forEach(plataforma => {
-                if(verificarColisaoBolaPlataforma(bola, plataforma) && bola.velocidadeY > 0) {
-                    bola.y = plataforma.y - bola.raio;
-                    bola.velocidadeY = 0;
-                    bola.noPlataforma = true;
+            // COLISÕES
+            bola.noChao = false;
+            plataformas.forEach(p => {
+                if(colisao(bola, p) && bola.velY > 0) {
+                    bola.y = p.y - bola.raio;
+                    bola.velY = 0;
+                    bola.noChao = true;
                 }
             });
 
-            // Move plataformas para criar efeito de infinito
-            plataformas.forEach((plataforma, index) => {
-                plataforma.x -= gameSpeed;
-                
-                // Remove plataformas que saem da tela
-                if(plataforma.x + plataforma.largura < 0) {
-                    plataformas.splice(index, 1);
-                    score += 10;
-                    scoreDisplay.textContent = `Pontuação: ${score}`;
+            // PLATAFORMAS INFINITAS
+            plataformas.forEach((p, i) => {
+                p.x -= velJogo;
+                if(p.x + p.largura < 0) {
+                    plataformas.splice(i,1);
+                    pontos +=10;
+                    placar.textContent = `Pontuação: ${pontos}`;
                 }
             });
 
-            // Cria novas plataformas automaticamente
-            const ultimaPlataforma = plataformas[plataformas.length - 1];
-            if(ultimaPlataforma && ultimaPlataforma.x + ultimaPlataforma.largura < canvas.width - distanciaMinEntrePlataformas) {
-                criarPlataforma(canvas.width + Math.random() * 50);
-            }
+            if(plataformas[plataformas.length-1].x < 600) criarPlataforma(850);
 
-            // Verifica se caiu na lava
-            if(bola.y + bola.raio > lava.y) {
-                resetarJogo();
-            }
-
-            // ------------------- DESENHO -------------------
-            desenharPlataformas();
-            desenharLava();
-            desenharBola();
-
-            requestAnimationFrame(loopDoJogo);
+            // RESETA SE CAIR NA LAVA
+            if(bola.y + bola.raio > lava.y) resetar();
         }
 
-        // Inicia o jogo!
-        resetarJogo();
-        loopDoJogo();
+        function loop() {
+            atualizar();
+            desenhar();
+            requestAnimationFrame(loop);
+        }
+
+        // INICIA O JOGO
+        resetar();
+        loop();
     </script>
 </body>
-    </html>
-    
+</html>
