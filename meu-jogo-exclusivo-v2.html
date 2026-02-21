@@ -47,7 +47,7 @@
 
         // ------------------- CONFIGURAÇÕES DO JOGO -------------------
         let score = 0;
-        const gameSpeed = 3;
+        const gameSpeed = 2.5; // Velocidade reduzida para facilitar passagem
 
         // ------------------- BOLA (JOGADOR) -------------------
         const bola = {
@@ -58,10 +58,8 @@
             bordaCor: '#FFA500', // Laranja
             velocidadeX: 0,
             velocidadeY: 0,
-            aceleracao: 0.8,
-            maxVelocidade: 8,
-            puloForca: -18,
-            gravidade: 0.8,
+            puloForca: -16, // Pulo mais baixo para mais controle
+            gravidade: 0.7, // Gravidade mais leve
             noPlataforma: false,
             // PONTO DE SPAWN SEGURO!
             posicaoInicialX: 100,
@@ -79,15 +77,15 @@
 
         // ------------------- OBSTÁCULOS (PLATAFORMAS) -------------------
         let plataformas = [];
-        const plataformaLarguraMin = 60;
-        const plataformaLarguraMax = 150;
+        const plataformaLarguraMin = 80; // Plataformas mais largas
+        const plataformaLarguraMax = 180;
         const plataformaAltura = 20;
         const plataformaCor = '#32CD32'; // Verde lima
         const plataformaBordaCor = '#228B22'; // Verde escuro
-        const distanciaMinEntrePlataformas = 120;
-        const distanciaMaxEntrePlataformas = 250;
-        const alturaMinPlataforma = 100;
-        const alturaMaxPlataforma = 450;
+        const distanciaMinEntrePlataformas = 100; // Menos distância entre elas
+        const distanciaMaxEntrePlataformas = 200;
+        const alturaMinPlataforma = 120; // Alturas mais acessíveis
+        const alturaMaxPlataforma = 400;
 
         // ------------------- CONTROLES -------------------
         const teclas = {
@@ -145,7 +143,7 @@
         function resetarJogo() {
             bola.x = bola.posicaoInicialX;
             bola.y = bola.posicaoInicialY;
-            bola.velocidadeX = 0;
+            bola.velocidadeX = 0; // Sem velocidade inicial
             bola.velocidadeY = 0;
             plataformas = [];
             score = 0;
@@ -153,9 +151,9 @@
             
             // Cria plataformas iniciais - UMA DELAS EM BAIXO DO SPAWN!
             criarPlataforma(50); // Plataforma do spawn
-            criarPlataforma(200);
-            criarPlataforma(400);
-            criarPlataforma(600);
+            criarPlataforma(250);
+            criarPlataforma(450);
+            criarPlataforma(650);
         }
 
         // ------------------- DESENHO DOS ELEMENTOS -------------------
@@ -230,34 +228,18 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // ------------------- ATUALIZAÇÕES -------------------
-            // Movimento horizontal da bola
-            if(teclas.esquerda) {
-                bola.velocidadeX -= bola.aceleracao;
-            } else if(teclas.direita) {
-                bola.velocidadeX += bola.aceleracao;
-            } else {
-                // Fricção
-                bola.velocidadeX *= 0.9;
+            // BOLA NÃO ANDA SOZINHA! Só se mover se o jogador apertar as teclas
+            bola.velocidadeX = 0; // Zera velocidade horizontal a cada frame
+            if(teclas.esquerda && bola.x - bola.raio > 0) {
+                bola.velocidadeX = -6; // Velocidade fixa e controlada
+            } else if(teclas.direita && bola.x + bola.raio < canvas.width) {
+                bola.velocidadeX = 6;
             }
-
-            // Limita velocidade máxima
-            if(bola.velocidadeX > bola.maxVelocidade) bola.velocidadeX = bola.maxVelocidade;
-            if(bola.velocidadeX < -bola.maxVelocidade) bola.velocidadeX = -bola.maxVelocidade;
 
             // Gravidade
             bola.velocidadeY += bola.gravidade;
             bola.x += bola.velocidadeX;
             bola.y += bola.velocidadeY;
-
-            // Mantém bola dentro da tela horizontalmente
-            if(bola.x - bola.raio < 0) {
-                bola.x = bola.raio;
-                bola.velocidadeX *= -0.5;
-            }
-            if(bola.x + bola.raio > canvas.width) {
-                bola.x = canvas.width - bola.raio;
-                bola.velocidadeX *= -0.5;
-            }
 
             // Verifica colisão com plataformas
             bola.noPlataforma = false;
@@ -305,4 +287,5 @@
         loopDoJogo();
     </script>
 </body>
-</html>
+    </html>
+    
