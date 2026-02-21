@@ -1,187 +1,147 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-    <title>Zer0Game - Aventura da Bola!</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo com Personagem no lugar da Bola</title>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1/lib/p5.min.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            padding: 20px; 
-            background: #1a1a2e; 
-            display: flex; 
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            font-family: Arial;
-            color: white;
-        }
-        canvas {
-            background: linear-gradient(#87CEEB, #4682B4);
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,255,255,0.5);
-        }
-        #placar {
-            margin-top: 15px;
-            font-size: 24px;
-            color: #00FFFF;
-        }
+        body { margin: 0; padding: 0; background-color: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
     </style>
 </head>
 <body>
-    <canvas id="jogo" width="800" height="600"></canvas>
-    <div id="placar">Pontuação: 0</div>
-
     <script>
-        // CONFIGURAÇÕES BÁSICAS
-        const tela = document.getElementById('jogo');
-        const pincel = tela.getContext('2d');
-        const placar = document.getElementById('placar');
-        let pontos = 0;
-        const velJogo = 2;
-
-        // BOLA DO JOGADOR
-        const bola = {
-            x: 100,
-            y: 150,
-            raio: 20,
-            cor: '#FFD700',
-            velX: 0,
-            velY: 0,
-            pulo: -16,
-            gravidade: 0.7,
-            noChao: false
-        };
-
-        // LAVA
-        const lava = {
-            y: 570,
-            altura: 30,
-            cor: '#FF4500'
-        };
-
-        // PLATAFORMAS
+        // Variáveis do jogo
+        let personagemX, personagemY;
+        let velX, velY;
+        let tamanhoPersonagem = 30;
         let plataformas = [];
+        let pontuacao = 0;
+        let corFundoJogo = color(80, 180, 220);
 
-        // CONTROLES
-        const teclas = {esquerda: false, direita: false, cima: false};
-        document.addEventListener('keydown', (e) => {
-            if(e.key === 'ArrowLeft') teclas.esquerda = true;
-            if(e.key === 'ArrowRight') teclas.direita = true;
-            if(e.key === 'ArrowUp' && bola.noChao) {
-                bola.velY = bola.pulo;
-                bola.noChao = false;
+        function setup() {
+            createCanvas(350, 300);
+            inicializarJogo();
+        }
+
+        function inicializarJogo() {
+            // Posição inicial do personagem
+            personagemX = tamanhoPersonagem * 2;
+            personagemY = height / 2;
+            
+            // Velocidade inicial
+            velX = 2;
+            velY = -3;
+            
+            // Reset pontuação
+            pontuacao = 0;
+            
+            // Criar plataformas
+            plataformas = [
+                { x: 20, y: height - 60, largura: 120, altura: 15 },
+                { x: 180, y: height - 120, largura: 100, altura: 15 },
+                { x: 80, y: height - 180, largura: 60, altura: 15 },
+                { x: 220, y: height - 240, largura: 100, altura: 15 }
+            ];
+        }
+
+        function draw() {
+            // Fundo do jogo
+            background(corFundoJogo);
+            
+            // Desenhar plataforma inferior (perigo)
+            fill(255, 60, 30);
+            rect(0, height - 20, width, 20);
+            
+            // Desenhar plataformas verdes
+            fill(40, 200, 60);
+            for (let p of plataformas) {
+                rect(p.x, p.y, p.largura, p.altura);
             }
-        });
-        document.addEventListener('keyup', (e) => {
-            if(e.key === 'ArrowLeft') teclas.esquerda = false;
-            if(e.key === 'ArrowRight') teclas.direita = false;
-        });
-
-        // FUNÇÕES
-        function criarPlataforma(x) {
-            plataformas.push({
-                x: x,
-                y: Math.random() * 300 + 120,
-                largura: Math.random() * 100 + 80,
-                altura: 20
-            });
-        }
-
-        function colisao(bola, plataforma) {
-            return (bola.x - bola.raio < plataforma.x + plataforma.largura &&
-                    bola.x + bola.raio > plataforma.x &&
-                    bola.y + bola.raio > plataforma.y &&
-                    bola.y - bola.raio < plataforma.y + plataforma.altura);
-        }
-
-        function resetar() {
-            bola.x = 100;
-            bola.y = 150;
-            bola.velX = 0;
-            bola.velY = 0;
-            plataformas = [];
-            pontos = 0;
-            placar.textContent = `Pontuação: ${pontos}`;
-            criarPlataforma(50);
-            criarPlataforma(250);
-            criarPlataforma(450);
-            criarPlataforma(650);
-        }
-
-        function desenhar() {
-            // LIMPA TELA
-            pincel.clearRect(0,0,tela.width,tela.height);
-
-            // DESENHA PLATAFORMAS
-            pincel.fillStyle = '#32CD32';
-            plataformas.forEach(p => {
-                pincel.fillRect(p.x, p.y, p.largura, p.altura);
-                pincel.strokeStyle = '#228B22';
-                pincel.strokeRect(p.x, p.y, p.largura, p.altura);
-            });
-
-            // DESENHA LAVA
-            pincel.fillStyle = '#FF4500';
-            pincel.fillRect(0, lava.y, tela.width, lava.altura);
-            pincel.fillStyle = '#FF6347';
-            pincel.fillRect(0, lava.y -5, tela.width, 5);
-
-            // DESENHA BOLA
-            pincel.beginPath();
-            pincel.arc(bola.x, bola.y, bola.raio, 0, Math.PI*2);
-            pincel.fillStyle = bola.cor;
-            pincel.fill();
-            pincel.strokeStyle = '#FFA500';
-            pincel.lineWidth = 3;
-            pincel.stroke();
-        }
-
-        function atualizar() {
-            // MOVIMENTO DA BOLA - SÓ SE APERTAR TECLAS!
-            bola.velX = 0;
-            if(teclas.esquerda && bola.x > bola.raio) bola.velX = -6;
-            if(teclas.direita && bola.x < tela.width - bola.raio) bola.velX = 6;
-
-            // GRAVIDADE
-            bola.velY += bola.gravidade;
-            bola.x += bola.velX;
-            bola.y += bola.velY;
-
-            // COLISÕES
-            bola.noChao = false;
-            plataformas.forEach(p => {
-                if(colisao(bola, p) && bola.velY > 0) {
-                    bola.y = p.y - bola.raio;
-                    bola.velY = 0;
-                    bola.noChao = true;
+            
+            // Desenhar personagem (Sonic simplificado)
+            desenharSonic(personagemX, personagemY, tamanhoPersonagem);
+            
+            // Movimento do personagem
+            personagemX += velX;
+            personagemY += velY;
+            
+            // Gravidade
+            velY += 0.2;
+            
+            // Colisões com bordas laterais
+            if (personagemX < tamanhoPersonagem/2 || personagemX > width - tamanhoPersonagem/2) {
+                velX *= -1;
+            }
+            
+            // Colisões com teto
+            if (personagemY < tamanhoPersonagem/2) {
+                velY *= -1;
+                pontuacao += 5; // Pontuar ao bater no teto
+            }
+            
+            // Colisões com plataformas
+            for (let p of plataformas) {
+                if (
+                    personagemY + tamanhoPersonagem/2 > p.y &&
+                    personagemY - tamanhoPersonagem/2 < p.y + p.altura &&
+                    personagemX + tamanhoPersonagem/2 > p.x &&
+                    personagemX - tamanhoPersonagem/2 < p.x + p.largura
+                ) {
+                    velY *= -1.1; // Rebater com pouco mais de força
+                    pontuacao += 1; // Pontuar ao tocar na plataforma
                 }
-            });
-
-            // PLATAFORMAS INFINITAS
-            plataformas.forEach((p, i) => {
-                p.x -= velJogo;
-                if(p.x + p.largura < 0) {
-                    plataformas.splice(i,1);
-                    pontos +=10;
-                    placar.textContent = `Pontuação: ${pontos}`;
-                }
-            });
-
-            if(plataformas[plataformas.length-1].x < 600) criarPlataforma(850);
-
-            // RESETA SE CAIR NA LAVA
-            if(bola.y + bola.raio > lava.y) resetar();
+            }
+            
+            // Game Over se cair na plataforma vermelha
+            if (personagemY > height - 20 - tamanhoPersonagem/2) {
+                fill(255);
+                textSize(24);
+                textAlign(CENTER, CENTER);
+                text("GAME OVER!", width/2, height/2);
+                textSize(16);
+                text(`Pontuação: ${pontuacao}`, width/2, height/2 + 30);
+                text("Clique para reiniciar", width/2, height/2 + 60);
+                noLoop();
+            }
+            
+            // Mostrar pontuação
+            fill(255);
+            textSize(18);
+            textAlign(CENTER, CENTER);
+            text(`Pontuação: ${pontuacao}`, width/2, 20);
         }
 
-        function loop() {
-            atualizar();
-            desenhar();
-            requestAnimationFrame(loop);
+        // Função para desenhar o Sonic simplificado
+        function desenharSonic(x, y, tam) {
+            // Corpo azul
+            fill(30, 140, 255);
+            ellipse(x, y, tam, tam);
+            
+            // Olhos
+            fill(255);
+            ellipse(x - tam/6, y - tam/6, tam/3, tam/3);
+            ellipse(x + tam/6, y - tam/6, tam/3, tam/3);
+            
+            // Pupilas
+            fill(0);
+            ellipse(x - tam/6, y - tam/6, tam/6, tam/6);
+            ellipse(x + tam/6, y - tam/6, tam/6, tam/6);
+            
+            // Nariz
+            fill(255, 165, 0);
+            ellipse(x, y, tam/5, tam/5);
+            
+            // Bico
+            fill(255);
+            triangle(x, y + tam/10, x - tam/8, y + tam/5, x + tam/8, y + tam/5);
         }
 
-        // INICIA O JOGO
-        resetar();
-        loop();
+        // Reiniciar jogo ao clicar
+        function mousePressed() {
+            inicializarJogo();
+            loop();
+        }
     </script>
 </body>
 </html>
